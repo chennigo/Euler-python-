@@ -13,3 +13,6 @@ node_modules/
 # 运行产物
 *.log
 dist/
+
+# SDD 工作区（账本、任务简报、评审包等过程产物）
+.superpowers/
