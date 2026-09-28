@@ -1,6 +1,5 @@
 import fs from 'node:fs';
-import path from 'node:path';
-import { kbRoot, resolveInKb } from './paths.js';
+import { resolveInKb } from './paths.js';
 
 const SECTION_RE = /^-\s*L(\d+)-L(\d+):\s*(.+?)\s*$/;
 const CATEGORY_RE = /^###\s+(.+?)\s*$/;
@@ -54,8 +53,8 @@ export function parseSearchIndex(mdText) {
 }
 
 /** 扫描知识库构建完整目录树。启动时调用一次。 */
-export function buildTree(root = kbRoot()) {
-  const indexPath = path.join(root, 'AI-SEARCH-INDEX.md');
+export function buildTree() {
+  const indexPath = resolveInKb('AI-SEARCH-INDEX.md');
   if (!fs.existsSync(indexPath)) {
     throw new Error(`索引文件不存在，无法构建目录树: ${indexPath}`);
   }
@@ -75,7 +74,7 @@ export function buildTree(root = kbRoot()) {
     }
   }
 
-  const wpDir = path.join(root, 'CTF大赛WP集合', 'articles');
+  const wpDir = resolveInKb('CTF大赛WP集合/articles');
   const wpList = fs.existsSync(wpDir)
     ? fs.readdirSync(wpDir).filter((f) => f.endsWith('.md'))
         .map((f) => ({ title: f.replace(/\.md$/, ''), path: `CTF大赛WP集合/articles/${f}` }))

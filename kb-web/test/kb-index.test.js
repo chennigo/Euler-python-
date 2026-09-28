@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseIdx, parseSearchIndex } from '../src/kb-index.js';
+import { parseIdx, parseSearchIndex, buildTree } from '../src/kb-index.js';
+import { resolveInKb } from '../src/paths.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const fixture = (n) => fs.readFileSync(path.join(here, 'fixtures', n), 'utf8');
@@ -48,4 +49,20 @@ test('parseSearchIndex 不把 .idx.md 索引表当作文章', () => {
   const paths = cats[0].articles.map((a) => a.path);
   assert.ok(paths.includes('SQL.md'));
   assert.ok(!paths.some((p) => p.endsWith('.idx.md')));
+});
+
+test('buildTree 无需参数，且文章路径能解析到真实文件', () => {
+  assert.equal(buildTree.length, 0); // root 形参已移除
+  const tree = buildTree();
+  assert.ok(tree.categories.length >= 5);
+  const sql = tree.categories.find((c) => c.name === 'SQL注入');
+  assert.ok(sql, '应存在 SQL注入 分类');
+  const article = sql.articles.find((a) => a.path === 'SQL.md');
+  assert.ok(article, 'SQL注入 分类下应有 SQL.md');
+  assert.ok(fs.existsSync(resolveInKb(article.path)), 'SQL.md 应解析到真实文件');
+});
+
+test('buildTree 不再接受 root 参数：传入路径无法改变解析根目录', () => {
+  const stray = buildTree(path.join(here, 'fixtures', 'nonexistent-root'));
+  assert.equal(stray.categories.length, buildTree().categories.length);
 });
