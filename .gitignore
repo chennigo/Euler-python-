@@ -1,0 +1,15 @@
+# 第三方知识库内容（42MB，上游 GitHub 已有，不需版本管理）
+Des-CTF-Knowledge-main/
+
+# 依赖
+node_modules/
+
+# 本地配置（含 API key，绝不入库）
+.dph-kb/
+*.local.json
+.env
+.env.*
+
+# 运行产物
+*.log
+dist/
