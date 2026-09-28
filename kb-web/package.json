@@ -1,0 +1,12 @@
+{
+  "name": "ctf-kb-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test \"test/**/*.test.js\""
+  },
+  "dependencies": {
+    "fastify": "^5.2.0"
+  }
+}
