@@ -1,12 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { kbRoot } from './paths.js';
+import { kbRoot, resolveInKb } from './paths.js';
 
 const SKIP_DIRS = new Set(['node_modules', '.git']);
 
 function* walkMd(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.name.startsWith('.') || SKIP_DIRS.has(entry.name)) continue;
+    // 符号链接一律跳过：链接目标可能在知识库之外，读它会变成泄漏通道
+    if (entry.isSymbolicLink()) continue;
     const abs = path.join(dir, entry.name);
     if (entry.isDirectory()) yield* walkMd(abs);
     else if (entry.name.endsWith('.md')) yield abs;
@@ -15,17 +17,19 @@ function* walkMd(dir) {
 
 /** 全库子串搜索。中文无需分词，直接 indexOf。 */
 export function search(query, { limit = 50 } = {}) {
-  if (!query) return [];
+  if (!query || limit <= 0) return [];
   const root = kbRoot();
   const needle = query.toLowerCase();
   const hits = [];
 
   for (const abs of walkMd(root)) {
-    const lines = fs.readFileSync(abs, 'utf8').split(/\r?\n/);
+    const rel = path.relative(root, abs).split(path.sep).join('/');
+    // 所有读取都经守卫，与 kb-index.js 保持一致
+    const lines = fs.readFileSync(resolveInKb(rel), 'utf8').split(/\r?\n/);
     for (let i = 0; i < lines.length; i++) {
       if (lines[i].toLowerCase().includes(needle)) {
         hits.push({
-          path: path.relative(root, abs).split(path.sep).join('/'),
+          path: rel,
           line: i + 1,
           text: lines[i].trim(),
           before: lines[i - 1] ?? '',
