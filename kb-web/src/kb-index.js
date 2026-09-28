@@ -28,7 +28,8 @@ export function parseSearchIndex(mdText) {
   const pushLinks = (target, text) => {
     for (const m of text.matchAll(MD_LINK_RE)) {
       const [, title, href] = m;
-      if (href.endsWith('.md')) target.push({ title, path: href });
+      // .idx.md 是行号索引表，不是可读内容，不作为文章暴露给 UI
+      if (href.endsWith('.md') && !href.endsWith('.idx.md')) target.push({ title, path: href });
     }
   };
 
