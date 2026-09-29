@@ -1,0 +1,274 @@
+* { box-sizing: border-box; }
+
+:root {
+  --fg: #1f2328;
+  --muted: #6b7280;
+  --bg: #f6f7f9;
+  --pane: #ffffff;
+  --border: #d9dde3;
+  --accent: #2563eb;
+  --accent-soft: #e8efff;
+  --danger: #b91c1c;
+  --warn-bg: #fff4e5;
+  --warn-border: #f0b429;
+}
+
+html, body { height: 100%; margin: 0; }
+
+body {
+  font: 14px/1.7 system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+  color: var(--fg);
+  background: var(--bg);
+}
+
+/* 三栏：目录树 | 阅读器 | AI 面板；底栏跨满整行 */
+#app {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) 380px;
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "tree reader ai"
+    "search search search";
+}
+
+#tree { grid-area: tree; }
+#reader { grid-area: reader; }
+#ai { grid-area: ai; }
+#searchbar { grid-area: search; }
+
+#tree, #ai {
+  overflow: auto;
+  background: var(--pane);
+  border-right: 1px solid var(--border);
+  padding: 12px;
+}
+
+#ai {
+  border-right: none;
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow: visible;   /* 让凭据区的输入框可以换行 */
+}
+
+#ai .pane { display: flex; flex-direction: column; gap: 8px; }
+
+#reader { overflow: auto; padding: 16px 24px 48px; }
+
+/* ---------- 目录树 ---------- */
+
+#tree .empty { color: var(--muted); padding: 8px; }
+
+.tree-list { list-style: none; margin: 0; padding: 0; }
+.tree-list .tree-list { margin-left: 12px; border-left: 1px dotted var(--border); padding-left: 8px; }
+
+.node {
+  padding: 2px 6px;
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.node:hover { background: var(--accent-soft); }
+.node.active { background: var(--accent-soft); font-weight: 600; }
+.node.article { color: #374151; }
+.node.section { color: #4b5563; font-size: 13px; }
+.node.group-title { cursor: default; color: var(--muted); font-size: 12px; font-weight: 600; }
+.node.group-title:hover { background: none; }
+.node.cat { font-weight: 600; }
+
+.chev { display: inline-block; width: 1em; color: var(--muted); }
+.chev.collapsed { transform: rotate(-90deg); }
+
+.kw { color: var(--muted); font-size: 12px; font-weight: 400; }
+.count { color: var(--muted); font-size: 12px; font-weight: 400; }
+
+/* ---------- 阅读器 ---------- */
+
+.loc {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: -16px -24px 12px;
+  padding: 8px 24px;
+  background: rgba(246, 247, 249, 0.95);
+  border-bottom: 1px solid var(--border);
+  font-family: ui-monospace, Consolas, monospace;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.loc .jump { color: var(--muted); font-weight: 400; }
+
+.content {
+  white-space: pre-wrap;
+  font-family: ui-monospace, Consolas, "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.65;
+  tab-size: 4;
+}
+
+/* 搜索命中高亮：后端返回的是子串，这里按不区分大小写定位包裹 */
+.content mark { background: #fff59d; padding: 0 1px; border-radius: 2px; }
+
+/* ---------- 底部搜索 ---------- */
+
+#searchbar {
+  border-top: 1px solid var(--border);
+  background: var(--pane);
+  position: relative;
+}
+
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+}
+
+#q {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+}
+
+.search-status { color: var(--muted); font-size: 12px; white-space: nowrap; }
+
+.results {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  max-height: 46vh;
+  overflow: auto;
+  background: var(--pane);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.08);
+}
+
+.hit {
+  padding: 8px 16px;
+  border-bottom: 1px solid #eef1f4;
+  cursor: pointer;
+}
+
+.hit:hover { background: var(--accent-soft); }
+.hit .hit-path { color: var(--muted); font-size: 12px; }
+.hit .hit-snippet {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hit mark { background: #fff59d; padding: 0 1px; border-radius: 2px; }
+
+/* ---------- AI 面板 ---------- */
+
+#ai h2 { font-size: 14px; margin: 0; }
+
+.status, .scope, .hint {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.status .dot { color: #16a34a; }
+.status .dot.bad { color: var(--danger); }
+.status .src { color: var(--fg); font-weight: 600; }
+
+.scope code {
+  font-family: ui-monospace, Consolas, monospace;
+  color: var(--accent);
+}
+
+#question, #api-key, #base-url {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+  resize: vertical;
+}
+
+#api-key, #base-url { font-size: 12px; }
+
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+button {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--pane);
+  font: inherit;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) { background: var(--accent-soft); }
+button:disabled { opacity: 0.5; cursor: default; }
+button.primary, #ask { background: var(--accent); color: #fff; border-color: var(--accent); }
+#ask:disabled { opacity: 0.5; }
+#cancel { color: var(--danger); }
+
+.answer {
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.7;
+  background: #fbfcfd;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  max-height: 40vh;
+  overflow: auto;
+}
+
+.citations { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.citation {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 2px 8px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.citation:hover { background: #d7e3ff; }
+
+/* 错误与「回答不完整」：固定语义色，不折叠 */
+.answer.error, .error-box {
+  white-space: pre-wrap;
+  border: 1px solid var(--danger);
+  background: #fdecec;
+  color: var(--danger);
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 13px;
+}
+
+.warn-box {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--warn-border);
+  background: var(--warn-bg);
+  border-radius: 8px;
+  color: #92400e;
+  font-size: 12px;
+}
+
+.settings-msg { font-size: 12px; color: var(--muted); }
+.settings-msg.ok { color: #16a34a; }
+.settings-msg.bad { color: var(--danger); }

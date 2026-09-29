@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CTF 知识库</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- 左侧：分类 → 文章 → 章节 的三层目录树 -->
+    <nav id="tree" aria-label="目录树"></nav>
+
+    <!-- 中间：阅读器。loc 显示当前定位「文件 L起-止」 -->
+    <main id="reader">
+      <div id="loc" class="loc">从左侧目录树选择一个章节开始阅读</div>
+      <div id="content" class="content"></div>
+    </main>
+
+    <!-- 右侧：AI 面板。两种问答模式共用，context 由当前章节决定 -->
+    <aside id="ai">
+      <section class="pane">
+        <h2>AI 问答</h2>
+        <div id="ai-status" class="status">读取引擎状态…</div>
+        <div id="ai-scope" class="scope"></div>
+        <textarea id="question" rows="4" placeholder="提问或粘贴题面（Ctrl+Enter 提交）"></textarea>
+        <div class="row">
+          <button id="ask" type="button">提问</button>
+          <button id="cancel" type="button" hidden>取消</button>
+        </div>
+        <div id="answer" class="answer" hidden></div>
+        <div id="notice" hidden></div>
+        <div id="citations" class="citations"></div>
+      </section>
+
+      <section class="pane">
+        <h2>凭据设置</h2>
+        <p class="hint">写入 API key 与端点（二者必须成对）。key 只写不读，页面不会回显。</p>
+        <input id="api-key" type="password" placeholder="API key" autocomplete="new-password">
+        <input id="base-url" type="text" placeholder="Base URL，如 https://api.deepseek.com/anthropic" autocomplete="off" spellcheck="false">
+        <div class="row">
+          <button id="save-settings" type="button">保存</button>
+          <span id="settings-msg" class="settings-msg"></span>
+        </div>
+      </section>
+    </aside>
+
+    <!-- 底部：搜索框 + 命中列表（列表向上浮出） -->
+    <footer id="searchbar">
+      <div id="results" class="results" hidden></div>
+      <div class="search-row">
+        <input id="q" type="search" placeholder="搜索知识库，回车检索…" autocomplete="off">
+        <span id="search-status" class="search-status"></span>
+      </div>
+    </footer>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
