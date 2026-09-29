@@ -9,6 +9,7 @@ import { resolveAuth, describeAuth } from './ai/auth.js';
 import { saveSettings } from './config.js';
 import { ask, setEngine } from './ai/engine.js';
 import { createClaudeAgentEngine } from './ai/claude-agent.js';
+import { describeEngineError } from './ai/errors.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const WEB_DIR = path.join(here, '..', 'web');
@@ -74,7 +75,10 @@ export function createServer() {
         send(ev);
       }
     } catch (err) {
-      send({ type: 'error', message: err.message });
+      // 与 claude-agent.js 共用同一脱敏策略：绝不透传 err.message/stack/env——
+      // SDK 会把子进程 stderr（可能含 ANTHROPIC_API_KEY）折进 message。
+      const message = describeEngineError(err);
+      if (message !== null) send({ type: 'error', message });
     }
     reply.raw.end();
   });

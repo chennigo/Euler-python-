@@ -1,6 +1,7 @@
 import { query as defaultQuery } from '@anthropic-ai/claude-agent-sdk';
 import { resolveAuth, buildChildEnv } from './auth.js';
 import { extractCitations } from './citations.js';
+import { describeEngineError } from './errors.js';
 import { kbRoot } from '../paths.js';
 
 const SYSTEM = `你是 CTF 知识库助手。回答时必须用「文件路径:行号」标注依据。
@@ -55,21 +56,6 @@ function extractText(msg) {
     .filter((b) => b.type === 'text')
     .map((b) => b.text)
     .join('');
-}
-
-/**
- * 把 SDK 抛出的错误压成一句可展示的话。
- * 子进程错误会带 stderr 原文（含 key 片段），绝不透传给客户端。
- */
-function describeSdkError(err) {
-  if (err?.name === 'AbortError') return null; // 主动取消，不算错误
-  const raw = String(err?.message ?? '');
-  if (/exited with code (\d+)/.test(raw)) {
-    const code = raw.match(/exited with code (\d+)/)[1];
-    return `Claude 子进程异常退出（exit ${code}），请检查 /api/ai/status 显示的生效端点与凭据`;
-  }
-  // 不透传原文：子进程错误可能内嵌 stderr（含 key 片段）。只保留类型名以便定位。
-  return `AI 引擎调用失败（${err?.name ?? 'Error'}），请稍后重试`;
 }
 
 /**
@@ -130,7 +116,7 @@ export function createClaudeAgentEngine(queryFn = defaultQuery) {
           }
         }
       } catch (err) {
-        const message = describeSdkError(err);
+        const message = describeEngineError(err);
         if (message === null) return; // 客户端已断开，无人在听，不吐帧
         yield { type: 'error', message };
         return;

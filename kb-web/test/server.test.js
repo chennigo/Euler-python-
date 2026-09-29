@@ -73,3 +73,34 @@ test('POST /api/ask 正常路径不中止信号，且不产生 error 帧', async
 
   await app.close();
 });
+
+// 回归：路由级 catch 曾经直接把 err.message 透传给客户端。引擎实现一旦原样
+// 重抛 SDK 异常，子进程 stderr（含 ANTHROPIC_API_KEY）就会经此送到浏览器——
+// 违反「API key 永不回显」。现在与 claude-agent.js 共用 describeEngineError 脱敏。
+// engine.js 的 current 是模块级单例，故整个用例自包含，不与其他用例交叉。
+test('POST /api/ask 引擎抛错时，error 帧不得泄漏 err.message 原文', async () => {
+  const secret = 'sk-live-DO-NOT-LEAK';
+
+  const app = createServer();
+  // createServer() 会注册真实引擎，故 mock 必须在它之后注册。
+  setEngine({
+    async *ask() {
+      throw new Error(`Claude Code process exited with code 1. stderr: auth failed for key ${secret}`);
+    },
+  });
+
+  const res = await app.inject({
+    method: 'POST', url: '/api/ask',
+    payload: { question: 'q' },
+  });
+
+  // 进程存活：请求正常收敛，响应被 reply.raw.end() 收尾
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.includes(secret), false);
+  assert.equal(res.body.includes('stderr'), false);
+  // 仍要给出足以定位问题的错误帧，而不是静默成功
+  assert.match(res.body, /"type":"error"/);
+  assert.match(res.body, /子进程异常退出|AI 引擎调用失败/);
+
+  await app.close();
+});
