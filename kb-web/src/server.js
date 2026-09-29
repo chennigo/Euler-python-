@@ -7,13 +7,16 @@ import { search } from './search.js';
 import { readArticle } from './article.js';
 import { resolveAuth, describeAuth } from './ai/auth.js';
 import { saveSettings } from './config.js';
-import { ask } from './ai/engine.js';
+import { ask, setEngine } from './ai/engine.js';
+import { createClaudeAgentEngine } from './ai/claude-agent.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const WEB_DIR = path.join(here, '..', 'web');
 
 export function createServer() {
   const app = Fastify({ logger: false });
+  // 路由可用前先挂上引擎；否则 /api/ask 只会回一个 error 帧。
+  setEngine(createClaudeAgentEngine());
   let tree = null;
 
   app.get('/api/tree', async () => {

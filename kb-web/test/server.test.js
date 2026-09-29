@@ -1,7 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from '../src/server.js';
-import { setEngine } from '../src/ai/engine.js';
+import { setEngine, ask } from '../src/ai/engine.js';
+
+test('createServer 注册真实引擎（无需外部 setEngine）', async () => {
+  // engine.js 的 current 是模块级单例；本用例置于文件首位，观察 createServer 自身的注册效果。
+  const app = createServer();
+  // 引擎未注册时 ask 会同步抛错；ask 是生成器，不会真的发起调用。
+  assert.doesNotThrow(() => ask({ question: 'q' }));
+  await app.close();
+});
 
 test('GET /api/tree 返回目录树', async () => {
   const app = createServer();
@@ -36,6 +44,10 @@ test('GET /api/ai/status 不回显 key', async () => {
 test('POST /api/ask 正常路径不中止信号，且不产生 error 帧', async () => {
   let signalAtCall;
   let noticeAborted;
+
+  const app = createServer();
+  // createServer() 会注册真实引擎，故 mock 必须在它之后注册；
+  // 路由在请求时才解析引擎，此时序无碍。
   setEngine({
     async *ask(req, opts) {
       signalAtCall = { hasSignal: !!opts.signal, aborted: opts.signal?.aborted };
@@ -45,7 +57,6 @@ test('POST /api/ask 正常路径不中止信号，且不产生 error 帧', async
     },
   });
 
-  const app = createServer();
   const res = await app.inject({
     method: 'POST', url: '/api/ask',
     payload: { question: '什么是 SQL 注入?' },
