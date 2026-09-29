@@ -115,6 +115,9 @@ body {
 /* 搜索命中高亮：后端返回的是子串，这里按不区分大小写定位包裹 */
 .content mark { background: #fff59d; padding: 0 1px; border-radius: 2px; }
 
+/* 跳转落点行：即使没有查询词也要能一眼看到落点（如点 AI 引用跳回原文） */
+.content .line.target { background: #fff8d6; box-shadow: inset 3px 0 0 #f0b429; }
+
 /* ---------- 底部搜索 ---------- */
 
 #searchbar {

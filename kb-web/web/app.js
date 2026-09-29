@@ -3,6 +3,7 @@
 
 // ---------- DOM ----------
 const treeEl = document.getElementById('tree');
+const readerEl = document.getElementById('reader'); // 阅读器的滚动容器
 const locEl = document.getElementById('loc');
 const contentEl = document.getElementById('content');
 const qEl = document.getElementById('q');
@@ -106,7 +107,7 @@ function renderCategory(cat) {
 function renderLinkGroup(label, links) {
   const children = el('ul', { cls: 'tree-list' });
   for (const link of links) {
-    children.append(el('li', {}, nodeForArticle({ title: link.title, path: link.path })));
+    children.append(leafArticleRow({ title: link.title, path: link.path }));
   }
   const head = el('div', { cls: 'node group-title' });
   head.append(el('span', { cls: 'chev', text: '▾' }), `${label}（${links.length}）`);
@@ -117,7 +118,7 @@ function renderLinkGroup(label, links) {
 
 function renderWpGroup(wpList) {
   const children = el('ul', { cls: 'tree-list' });
-  for (const w of wpList) children.append(el('li', {}, nodeForArticle(w)));
+  for (const w of wpList) children.append(leafArticleRow(w));
   const head = el('div', { cls: 'node cat' });
   head.append(el('span', { cls: 'chev', text: '▾' }), `大赛 WP（${wpList.length}）`);
   const wrap = el('li', {}, head, children);
@@ -127,8 +128,11 @@ function renderWpGroup(wpList) {
 
 function renderArticle(article) {
   const sections = article.sections ?? [];
-  const kids = el('ul', { cls: 'tree-list' });
 
+  // 无章节：叶子行，点击整篇阅读
+  if (!sections.length) return leafArticleRow(article);
+
+  const kids = el('ul', { cls: 'tree-list' });
   for (const s of sections) {
     const node = el('div', {
       cls: 'node section',
@@ -141,26 +145,35 @@ function renderArticle(article) {
     sectionNodes.set(sectionKey(article.path, s.startLine), node);
     kids.append(el('li', {}, node));
   }
-
-  const head = nodeForArticle(article);
-  if (!sections.length) return el('li', {}, head);
-
-  const wrap = el('li', {}, head, kids);
-  makeCollapsible(head, kids, true); // 有章节的文章默认折叠
-  return wrap;
+  return collapsibleArticleRow(article, kids);
 }
 
-/** 文章行：有章节则点击展开/折叠，无章节则点击整篇阅读。 */
-function nodeForArticle(article) {
+/** 文章行骨架：仅建节点并登记进 articleNodes，点击行为交给调用方。 */
+function articleRow(article) {
   const node = el('div', {
     cls: 'node article',
     attrs: { role: 'button', tabindex: '0', title: article.path },
   });
-  node.append(el('span', { cls: 'chev', text: '▸' }), article.title);
   articleNodes.set(article.path, node);
+  return node;
+}
+
+/** 有章节的文章行：点击标题只展开/折叠章节，不触发整篇阅读。 */
+function collapsibleArticleRow(article, kids) {
+  const node = articleRow(article);
+  node.append(el('span', { cls: 'chev', text: '▾' }), article.title);
+  const wrap = el('li', {}, node, kids);
+  makeCollapsible(node, kids, true); // 有章节的文章默认折叠
+  return wrap;
+}
+
+/** 叶子文章行（无章节，或 WP 集合内的文章）：点击整篇阅读。 */
+function leafArticleRow(article) {
+  const node = articleRow(article);
+  node.append(el('span', { cls: 'chev', text: '·' }), article.title);
   node.addEventListener('click', () => openArticle(article.path));
   node.addEventListener('keydown', (e) => { if (e.key === 'Enter') openArticle(article.path); });
-  return node;
+  return el('li', {}, node);
 }
 
 /** 折叠控制：head 点击时切换 body 的显示与箭头方向。 */
@@ -179,12 +192,16 @@ function makeCollapsible(head, body, collapsed) {
 
 // ---------- 阅读器 ----------
 
-/** 点章节：定位并读该行范围。 */
-async function openSection(path, startLine, endLine, label) {
+/**
+ * 点章节：定位并读该行范围。
+ * opts.highlightLines/query 供命中跳转使用——目标行落在章节内时高亮它，
+ * 再由调用方滚动到该行，这样「跳到引用所在行」在长章节里也可见。
+ */
+async function openSection(path, startLine, endLine, label, opts = {}) {
   currentSection = { file: path, startLine, endLine, label };
   setActiveNode(sectionNodes.get(sectionKey(path, startLine)));
   updateScope();
-  await loadArticle({ file: path, startLine, endLine });
+  await loadArticle({ file: path, startLine, endLine, ...opts });
 }
 
 /** 无章节文章（或 WP）：从第 1 行起读一个窗口。 */
@@ -227,7 +244,7 @@ async function loadArticle({ file, startLine, endLine, highlightLines = [], quer
   );
 
   renderContent(data, highlightLines, query);
-  contentEl.scrollTop = 0;
+  readerEl.scrollTop = 0; // 换文章后回到顶部（#reader 才是滚动容器）
 }
 
 function renderContent(data, highlightLines, query) {
@@ -238,8 +255,14 @@ function renderContent(data, highlightLines, query) {
     const lineNo = data.startLine + i;
     const div = el('div', { cls: 'line' });
     div.id = 'L' + lineNo;
-    if (marks.has(lineNo)) appendHighlighted(div, line, query);
-    else div.textContent = line;
+    if (marks.has(lineNo)) {
+      // 落点行始终加视觉标记；有查询词时再把命中子串包成 <mark>
+      div.classList.add('target');
+      if (query) appendHighlighted(div, line, query);
+      else div.textContent = line;
+    } else {
+      div.textContent = line;
+    }
     frag.append(div);
   });
   contentEl.replaceChildren(frag);
@@ -247,21 +270,25 @@ function renderContent(data, highlightLines, query) {
 
 /** 统一跳转逻辑：章节点击、搜索命中、AI 引用共用。 */
 async function jumpTo(file, line) {
-  const hit = line
-    ? findSectionContaining(file, line)
-    : null;
+  const hit = line ? findSectionContaining(file, line) : null;
+  const highlight = { highlightLines: line ? [line] : [], query: lastQuery };
+
   if (hit) {
-    await openSection(file, hit.section.startLine, hit.section.endLine, hit.section.label);
-    return;
+    // 命中落在章节内：打开整段章节，并高亮目标行（章节可能长达数百行）
+    await openSection(file, hit.section.startLine, hit.section.endLine, hit.section.label, highlight);
+  } else {
+    // 不在任何章节内：读目标行周围的一段
+    currentSection = null;
+    setActiveNode(articleNodes.get(file));
+    updateScope();
+    await loadArticle({
+      file,
+      startLine: line ? Math.max(1, line - 10) : 1,
+      endLine: line ? line + 40 : 300,
+      ...highlight,
+    });
   }
-  // 没有命中的章节：读命中行周围的一段，并高亮该行
-  const startLine = line ? Math.max(1, line - 10) : 1;
-  const endLine = line ? line + 40 : 300;
-  currentSection = null;
-  setActiveNode(articleNodes.get(file));
-  updateScope();
-  await loadArticle({ file, startLine, endLine, highlightLines: line ? [line] : [], query: lastQuery });
-  scrollToLine(line);
+  scrollToLine(line); // 两条分支共用同一个落点：把目标行滚进视野
 }
 
 function findSectionContaining(file, line) {
@@ -276,10 +303,13 @@ function findSectionContaining(file, line) {
   return null;
 }
 
+/** 把目标行滚到阅读器视野中央。用相对偏移而非 scrollIntoView，避免连带滚动祖先。 */
 function scrollToLine(line) {
   if (!line) return;
   const node = contentEl.querySelector('#L' + line);
-  if (node) node.scrollIntoView({ block: 'center' });
+  if (!node) return;
+  const delta = node.getBoundingClientRect().top - readerEl.getBoundingClientRect().top;
+  readerEl.scrollTop += delta - readerEl.clientHeight / 2;
 }
 
 // ---------- 搜索 ----------
@@ -363,6 +393,9 @@ async function submitQuestion() {
   if (currentAbort) currentAbort.abort();
   const controller = new AbortController();
   currentAbort = controller;
+  // 每次提问一个身份。被新提问取代的旧请求（其 abort 的 catch/finally 稍后才跑）
+  // 不得再碰共享 UI —— 否则会把新请求的「可取消」状态清掉、盖上陈旧的「已取消」提示。
+  const id = ++requestSeq;
 
   beginAnswer();
   askEl.disabled = true;
@@ -388,17 +421,22 @@ async function submitQuestion() {
     if (!res.ok) {
       // 非流式错误（如 400）也要显式呈现，不能静默
       const body = await res.json().catch(() => ({}));
+      if (id !== requestSeq) return; // 已被取代，交给当前请求
       showError(body.error || `HTTP ${res.status}`);
       return;
     }
-    await readSSE(res.body, handleEvent);
+    // 事件同样按身份过滤：流未读完就被 abort 时，残余帧不能再写入新请求的答案区
+    await readSSE(res.body, (ev) => { if (id === requestSeq) handleEvent(ev); });
   } catch (err) {
+    if (id !== requestSeq) return; // 已被取代：不动 UI
     if (err.name === 'AbortError') showNotice('已取消');
     else showError(err.message);
   } finally {
-    askEl.disabled = false;
-    cancelEl.hidden = true;
-    currentAbort = null;
+    if (id === requestSeq) { // 只有当前请求负责收尾
+      askEl.disabled = false;
+      cancelEl.hidden = true;
+      currentAbort = null;
+    }
   }
 }
 
@@ -427,6 +465,7 @@ async function readSSE(body, onEvent) {
 
 let answerText = '';
 let errored = false;
+let requestSeq = 0; // 提问序号：用于识别被取代的旧请求
 
 function beginAnswer() {
   answerText = '';
