@@ -57,8 +57,17 @@ export function createServer() {
       Connection: 'keep-alive',
     });
     const send = (ev) => reply.raw.write(`data: ${JSON.stringify(ev)}\n\n`);
+
+    // 只在客户端提前断开时中止；正常结束时 writableEnded 已为 true。
+    // 注意不能用 req.raw.signal：请求体读完后该流自行结束，其 signal 会在
+    // 无人断开的情况下 abort，导致每次提问都被误判为「客户端已断开」。
+    const ac = new AbortController();
+    reply.raw.on('close', () => {
+      if (!reply.raw.writableEnded) ac.abort();
+    });
+
     try {
-      for await (const ev of ask({ question, context }, { signal: req.raw.signal })) {
+      for await (const ev of ask({ question, context }, { signal: ac.signal })) {
         send(ev);
       }
     } catch (err) {
